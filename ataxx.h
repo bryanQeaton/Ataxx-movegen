@@ -1,0 +1,138 @@
+#ifndef ATAXX_ATAXX_H
+#define ATAXX_ATAXX_H
+#include <cstdint>
+#include <iosfwd>
+#include <iostream>
+
+
+namespace Ataxx {
+    using u64=uint64_t;
+    using u16=uint16_t;
+    using u8=uint8_t;
+    namespace Utils {
+        inline void bitView(const u64 n) {
+            for (int i=0;i<64;i++) {
+                if (i%8==0){std::cout<<"\n";}
+                if (n&1ull<<i){std::cout<<"1";}
+                else{std::cout<<"0";}
+            }
+        }
+    }
+    namespace masks {
+        constexpr u64 MASKCLOSE[64]={
+            0x0000000000000302ULL,0x0000000000000705ULL,0x0000000000000E0AULL,0x0000000000001C14ULL,0x0000000000003828ULL,0x0000000000007050ULL,0x000000000000E0A0ULL,0x000000000000C040ULL,
+            0x0000000000030203ULL,0x0000000000070507ULL,0x00000000000E0A0EULL,0x00000000001C141CULL,0x0000000000382838ULL,0x0000000000705070ULL,0x0000000000E0A0E0ULL,0x0000000000C040C0ULL,
+            0x0000000003020300ULL,0x0000000007050700ULL,0x000000000E0A0E00ULL,0x000000001C141C00ULL,0x0000000038283800ULL,0x0000000070507000ULL,0x00000000E0A0E000ULL,0x00000000C040C000ULL,
+            0x0000000302030000ULL,0x0000000705070000ULL,0x0000000E0A0E0000ULL,0x0000001C141C0000ULL,0x0000003828380000ULL,0x0000007050700000ULL,0x000000E0A0E00000ULL,0x000000C040C00000ULL,
+            0x0000030203000000ULL,0x0000070507000000ULL,0x00000E0A0E000000ULL,0x00001C141C000000ULL,0x0000382838000000ULL,0x0000705070000000ULL,0x0000E0A0E0000000ULL,0x0000C040C0000000ULL,
+            0x0003020300000000ULL,0x0007050700000000ULL,0x000E0A0E00000000ULL,0x001C141C00000000ULL,0x0038283800000000ULL,0x0070507000000000ULL,0x00E0A0E000000000ULL,0x00C040C000000000ULL,
+            0x0302030000000000ULL,0x0705070000000000ULL,0x0E0A0E0000000000ULL,0x1C141C0000000000ULL,0x3828380000000000ULL,0x7050700000000000ULL,0xE0A0E00000000000ULL,0xC040C00000000000ULL,
+            0x0203000000000000ULL,0x0507000000000000ULL,0x0A0E000000000000ULL,0x141C000000000000ULL,0x2838000000000000ULL,0x5070000000000000ULL,0xA0E0000000000000ULL,0x40C0000000000000ULL,
+        };
+        constexpr u64 MASKFAR[64]={
+            0x0000000000070404ULL,0x00000000000F0808ULL,0x00000000001F1111ULL,0x00000000003E2222ULL,0x00000000007C4444ULL,0x0000000000F88888ULL,0x0000000000F01010ULL,0x0000000000E02020ULL,
+            0x0000000007040404ULL,0x000000000F080808ULL,0x000000001F111111ULL,0x000000003E222222ULL,0x000000007C444444ULL,0x00000000F8888888ULL,0x00000000F0101010ULL,0x00000000E0202020ULL,
+            0x0000000704040407ULL,0x0000000F0808080FULL,0x0000001F1111111FULL,0x0000003E2222223EULL,0x0000007C4444447CULL,0x000000F8888888F8ULL,0x000000F0101010F0ULL,0x000000E0202020E0ULL,
+            0x0000070404040700ULL,0x00000F0808080F00ULL,0x00001F1111111F00ULL,0x00003E2222223E00ULL,0x00007C4444447C00ULL,0x0000F8888888F800ULL,0x0000F0101010F000ULL,0x0000E0202020E000ULL,
+            0x0007040404070000ULL,0x000F0808080F0000ULL,0x001F1111111F0000ULL,0x003E2222223E0000ULL,0x007C4444447C0000ULL,0x00F8888888F80000ULL,0x00F0101010F00000ULL,0x00E0202020E00000ULL,
+            0x0704040407000000ULL,0x0F0808080F000000ULL,0x1F1111111F000000ULL,0x3E2222223E000000ULL,0x7C4444447C000000ULL,0xF8888888F8000000ULL,0xF0101010F0000000ULL,0xE0202020E0000000ULL,
+            0x0404040700000000ULL,0x0808080F00000000ULL,0x1111111F00000000ULL,0x2222223E00000000ULL,0x4444447C00000000ULL,0x888888F800000000ULL,0x101010F000000000ULL,0x202020E000000000ULL,
+            0x0404070000000000ULL,0x08080F0000000000ULL,0x11111F0000000000ULL,0x22223E0000000000ULL,0x44447C0000000000ULL,0x8888F80000000000ULL,0x1010F00000000000ULL,0x2020E00000000000ULL,
+        };
+        inline u64 neighbours(const u64 b) {
+            const u64 mid=(b&0xFEFEFEFEFEFEFEFEULL)>>1|b|(b&0x7F7F7F7F7F7F7F7FULL)<<1;
+            return (mid<<8|mid|mid>>8)&~b;
+        }
+    }
+    class Move {
+        u16 data{};
+    public:
+        void setTo(const int idx){data|=idx;}
+        void setFrom(const int idx){data|=idx<<6;}
+        [[nodiscard]] int to() const{return data&0x003F;}
+        [[nodiscard]] int from() const{return (data&0xFFC0)>>6;}
+        Move(const int from,const int to) {
+            setFrom(from);
+            setTo(to);
+        }
+        Move()=default;
+    };
+    class Board {
+        u64 cells[2]{};
+        bool _stm{};
+    public:
+        void _debugPlace(const int idx,const bool stm=false) {cells[stm]|=1ull<<idx;}
+        [[nodiscard]] u64 occ() const {return (cells[0]|cells[1])&0x7F7F7F7F7F7F7FULL;}
+        [[nodiscard]] u64 sideOcc(const bool stm) const {return cells[stm]&0x7F7F7F7F7F7F7FULL;}
+        [[nodiscard]] bool stm() const{return _stm;}
+        void makeMove(const Move move) {
+            cells[_stm]^=1ull<<move.from();
+            cells[_stm]|=1ull<<move.to();
+            const u64 flips=cells[!_stm]&masks::MASKCLOSE[move.to()];
+            cells[_stm]|=flips;
+            cells[!_stm]^=flips;
+            _stm=!_stm;
+        }
+        friend std::ostream &operator<<(std::ostream &os,const Board &pos) {
+            for (int i=0;i<56;i++) {
+                if (i%8==0&&i){std::cout<<"\n";}
+                if ((i+1)%8==0){continue;}
+                if (pos.cells[0]&1ull<<i) {std::cout<<"X ";}
+                else if (pos.cells[1]&1ull<<i) {std::cout<<"O ";}
+                else{std::cout<<"_ ";}
+            }
+            return os;
+        }
+    };
+    class Movelist {
+        Move moves[256]{};
+        int _size=0;
+    public:
+        [[nodiscard]] size_t size() const{return _size;}
+        [[nodiscard]] bool empty() const{return _size==0;}
+        void add(const Move move) {
+            moves[_size]=move;
+            _size++;
+        }
+        void pop() {_size--;}
+        void clear() {_size=0;}
+        const Move &operator[](const int idx) const {return moves[idx];}
+    };
+    namespace movegen {
+        template <bool jmpMoves>
+        void genMoves(const Board &pos,Movelist &moves) {
+            if constexpr (!jmpMoves) {
+                u64 dest=masks::neighbours(pos.sideOcc(pos.stm()))&0x7F7F7F7F7F7F7FULL&~pos.sideOcc(!pos.stm());
+                while (dest) {
+                    const int idx=__builtin_ctzll(dest);
+                    dest&=(dest-1);
+                    moves.add(Move(55,idx));
+                }
+            }
+            else {
+                u64 pieces=pos.sideOcc(pos.stm());
+                while (pieces) {
+                    const int from=__builtin_ctzll(pieces);
+                    pieces&=(pieces-1);
+                    u64 dest=masks::MASKFAR[from]&0x7F7F7F7F7F7F7FULL&~pos.occ();
+                    while (dest) {
+                        const int idx=__builtin_ctzll(dest);
+                        dest&=(dest-1);
+                        moves.add(Move(from,idx));
+                    }
+                }
+            }
+        }
+        inline void legalMoves(const Board &pos,Movelist &moves) {
+            genMoves<false>(pos,moves);
+            genMoves<true>(pos,moves);
+            //if (moves.empty()){moves.add(Move(55,55));}
+        }
+    }
+}
+
+
+
+
+
+#endif //ATAXX_ATAXX_H
