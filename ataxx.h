@@ -3,10 +3,12 @@
 #include <cstdint>
 #include <iosfwd>
 #include <iostream>
+#include <immintrin.h>
 
 
 namespace Ataxx {
     using u64=uint64_t;
+    using u32=uint64_t;
     using u16=uint16_t;
     using u8=uint8_t;
     namespace Utils {
@@ -41,19 +43,26 @@ namespace Ataxx {
         };
         inline u64 neighbours(const u64 b) {
             const u64 mid=(b&0xFEFEFEFEFEFEFEFEULL)>>1|b|(b&0x7F7F7F7F7F7F7F7FULL)<<1;
-            return (mid<<8|mid|mid>>8)&~b;
+            return (mid<<8|mid|mid>>8)&~b&0x7F7F7F7F7F7F7FULL;
         }
     }
     class Move {
-        u16 data{};
+        u32 data{};
     public:
-        void setTo(const int idx){data|=idx;}
-        void setFrom(const int idx){data|=idx<<6;}
-        [[nodiscard]] int to() const{return data&0x003F;}
-        [[nodiscard]] int from() const{return (data&0xFFC0)>>6;}
-        Move(const int from,const int to) {
+        void setTo(const u8 idx){data|=idx;}
+        void setFrom(const u8 idx){data|=idx<<6;}
+        void setCaptures(const u64 opp,const u64 mask) {data|=_pext_u64(opp,mask)<<12;}
+        [[nodiscard]] u8 to() const{return data&0x003F;}
+        [[nodiscard]] u8 from() const{return (data&0xFC0)>>6;}
+        [[nodiscard]] u64 captures(const u64 mask) const {return _pdep_u64(data>>12,mask);}
+        Move(const u8 from,const u8 to) {
             setFrom(from);
             setTo(to);
+        }
+        Move(const u8 from,const u8 to,const u64 opp,const u64 mask) {
+            setFrom(from);
+            setTo(to);
+            setCaptures(opp,mask);
         }
         Move()=default;
     };
@@ -68,10 +77,18 @@ namespace Ataxx {
         void makeMove(const Move move) {
             cells[_stm]^=1ull<<move.from();
             cells[_stm]|=1ull<<move.to();
-            const u64 flips=cells[!_stm]&masks::MASKCLOSE[move.to()];
+            const u64 flips=move.captures(masks::MASKCLOSE[move.to()]);
             cells[_stm]|=flips;
             cells[!_stm]^=flips;
             _stm=!_stm;
+        }
+        void unmakeMove(const Move move) {
+            const u64 flips=move.captures(masks::MASKCLOSE[move.to()]);
+            _stm=!_stm;
+            cells[!_stm]|=flips;
+            cells[_stm]^=flips;
+            cells[_stm]^=1ull<<move.to();
+            cells[_stm]|=1ull<<move.from();
         }
         friend std::ostream &operator<<(std::ostream &os,const Board &pos) {
             for (int i=0;i<56;i++) {
@@ -96,37 +113,58 @@ namespace Ataxx {
         }
         void pop() {_size--;}
         void clear() {_size=0;}
-        const Move &operator[](const int idx) const {return moves[idx];}
+        const Move &operator[](const u8 idx) const {return moves[idx];}
     };
     namespace movegen {
         template <bool jmpMoves>
-        void genMoves(const Board &pos,Movelist &moves) {
+        void genMoves(const Board &pos,Movelist &moves,const u64 opp) {
             if constexpr (!jmpMoves) {
-                u64 dest=masks::neighbours(pos.sideOcc(pos.stm()))&0x7F7F7F7F7F7F7FULL&~pos.sideOcc(!pos.stm());
+                u64 dest=masks::neighbours(pos.sideOcc(pos.stm()))&~pos.sideOcc(!pos.stm());
                 while (dest) {
-                    const int idx=__builtin_ctzll(dest);
+                    const u8 idx=__builtin_ctzll(dest);
                     dest&=(dest-1);
-                    moves.add(Move(55,idx));
+                    moves.add(Move(55,idx,opp,masks::MASKCLOSE[idx]));
                 }
             }
             else {
                 u64 pieces=pos.sideOcc(pos.stm());
                 while (pieces) {
-                    const int from=__builtin_ctzll(pieces);
+                    const u8 from=__builtin_ctzll(pieces);
                     pieces&=(pieces-1);
                     u64 dest=masks::MASKFAR[from]&0x7F7F7F7F7F7F7FULL&~pos.occ();
                     while (dest) {
-                        const int idx=__builtin_ctzll(dest);
+                        const u8 idx=__builtin_ctzll(dest);
                         dest&=(dest-1);
-                        moves.add(Move(from,idx));
+                        moves.add(Move(from,idx,opp,masks::MASKCLOSE[idx]));
                     }
                 }
             }
         }
         inline void legalMoves(const Board &pos,Movelist &moves) {
-            genMoves<false>(pos,moves);
-            genMoves<true>(pos,moves);
-            //if (moves.empty()){moves.add(Move(55,55));}
+            const u64 opp=pos.sideOcc(!pos.stm());
+            genMoves<false>(pos,moves,opp);
+            genMoves<true>(pos,moves,opp);
+        }
+        template <bool jmpMoves>
+        u8 _countMoves(const Board &pos) {
+            u8 moveCount=0;
+            if constexpr (!jmpMoves) {
+                const u64 dest=masks::neighbours(pos.sideOcc(pos.stm()))&0x7F7F7F7F7F7F7FULL&~pos.sideOcc(!pos.stm());
+                moveCount+=__builtin_popcountll(dest);
+            }
+            else {
+                u64 pieces=pos.sideOcc(pos.stm());
+                while (pieces) {
+                    const u8 from=__builtin_ctzll(pieces);
+                    pieces&=(pieces-1);
+                    const u64 dest=masks::MASKFAR[from]&0x7F7F7F7F7F7F7FULL&~pos.occ();
+                    moveCount+=__builtin_popcountll(dest);
+                }
+            }
+            return moveCount;
+        }
+        inline u8 countMoves(const Board &pos) {
+            return _countMoves<false>(pos)+_countMoves<true>(pos);
         }
     }
 }
