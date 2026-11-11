@@ -5,7 +5,6 @@
 #include <iostream>
 #include <immintrin.h>
 
-
 namespace Ataxx {
     using u64=uint64_t;
     using u32=uint64_t;
@@ -18,6 +17,15 @@ namespace Ataxx {
                 if (n&1ull<<i){std::cout<<"1";}
                 else{std::cout<<"0";}
             }
+        }
+        inline std::string printNum(const u64 n) {
+            std::string num=std::to_string(n);
+            int c=1;
+            for (int i=static_cast<int>(num.size())-1;i>0;i--) {
+                if (c%3==0){num.insert(num.begin()+i,',');}
+                c++;
+            }
+            return num;
         }
     }
     namespace masks {

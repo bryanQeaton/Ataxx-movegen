@@ -21,7 +21,7 @@ int main() {
         uint64_t nodes=perft(pos,d);
         auto t1=std::chrono::high_resolution_clock::now();
         int time=std::chrono::duration_cast<std::chrono::milliseconds>(t1-t0).count();
-        std::cout<<"Depth "<<d<<" nodes "<<nodes<<" time "<<time<<"ms nps "<<nodes/(time?time:1)*(time?1000:1)<<"\n";
+        std::cout<<"Depth "<<d<<" nodes "<<Ataxx::Utils::printNum(nodes)<<" time "<<time<<"ms nps "<<Ataxx::Utils::printNum(nodes/(time?time:1)*(time?1000:1))<<"\n";
     }
 
 
