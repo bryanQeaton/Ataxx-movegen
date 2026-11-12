@@ -1,6 +1,6 @@
 #ifndef ATAXX_PERFT_H
 #define ATAXX_PERFT_H
-#include "ataxx.h"
+#include "../src/ataxx.h"
 
 
 inline uint64_t perft(Ataxx::Board &pos,const int depth) {
@@ -17,6 +17,21 @@ inline uint64_t perft(Ataxx::Board &pos,const int depth) {
         pos.unmakeMove(moves[m]);
     }
     return nodes;
+}
+inline void runperft() {
+    auto pos=Ataxx::Board();
+    pos._debugPlace(0);
+    pos._debugPlace(6,true);
+    pos._debugPlace(54);
+    pos._debugPlace(48,true);
+    std::cout<<pos<<"\n";
+    for (int d=0;d<=10;d++) {
+        auto t0=std::chrono::high_resolution_clock::now();
+        uint64_t nodes=perft(pos,d);
+        auto t1=std::chrono::high_resolution_clock::now();
+        int time=std::chrono::duration_cast<std::chrono::milliseconds>(t1-t0).count();
+        std::cout<<"Depth "<<d<<" nodes "<<Ataxx::Utils::printNum(nodes)<<" time "<<time<<"ms nps "<<Ataxx::Utils::printNum(nodes/(time?time:1)*(time?1000:1))<<"\n";
+    }
 }
 //pointless no gain
 // inline uint64_t perft(Ataxx::Board &pos,const int depth) {

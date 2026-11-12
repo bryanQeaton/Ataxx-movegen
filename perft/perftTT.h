@@ -1,6 +1,8 @@
 #ifndef ATAXX_PERFTTT_H
 #define ATAXX_PERFTTT_H
-#include "ataxx.h"
+#include <chrono>
+
+#include "../src/ataxx.h"
 
 
 inline uint32_t key(const uint64_t hash){return hash>>32;}
@@ -52,6 +54,7 @@ inline uint64_t perftTT(Ataxx::Board &pos,const int depth) {
         return Ataxx::movegen::countMoves(pos);
     }
     const uint64_t hash=pos.hash();
+    tt.prefetch(hash);
     Entry *entry=tt.probe(hash);
     if (entry->key==key(hash)&&entry->depth==depth){return entry->nodes;}
 
@@ -68,6 +71,20 @@ inline uint64_t perftTT(Ataxx::Board &pos,const int depth) {
     entry->nodes=nodes;
     return nodes;
 }
-
+inline void runperft() {
+    auto pos=Ataxx::Board();
+    pos._debugPlace(0);
+    pos._debugPlace(6,true);
+    pos._debugPlace(54);
+    pos._debugPlace(48,true);
+    std::cout<<pos<<"\n";
+    for (int d=0;d<=10;d++) {
+        auto t0=std::chrono::high_resolution_clock::now();
+        uint64_t nodes=perftTT(pos,d);
+        auto t1=std::chrono::high_resolution_clock::now();
+        int time=std::chrono::duration_cast<std::chrono::milliseconds>(t1-t0).count();
+        std::cout<<"Depth "<<d<<" nodes "<<Ataxx::Utils::printNum(nodes)<<" time "<<time<<"ms nps "<<Ataxx::Utils::printNum(nodes/(time?time:1)*(time?1000:1))<<"\n";
+    }
+}
 
 #endif //ATAXX_PERFTTT_H

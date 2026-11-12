@@ -7,7 +7,9 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native -DNDEBUG -funroll-loops")
 set(CMAKE_EXE_LINKER_FLAGS "-static")
 
 add_executable(Ataxx main.cpp
-        ataxx.h
-        perft.h
-        perftTT.h
+        src/ataxx.h
+        perft/perft.h
+        perft/perftTT.h
+        engine/uai.h
+        engine/root.h
 )

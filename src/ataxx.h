@@ -48,7 +48,7 @@ namespace Ataxx {
             16190043774353961989ULL,17072437747565012835ULL,13821471463705682303ULL,5235817128604505476ULL,8905191796560290687ULL,273102322729082879ULL,1241804915178020297ULL,8266326002750202771ULL
         };
     }
-    namespace masks {
+    namespace tables {
         constexpr u64 MASKCLOSE[64]={
             0x0000000000000302ULL,0x0000000000000705ULL,0x0000000000000E0AULL,0x0000000000001C14ULL,0x0000000000003828ULL,0x0000000000007050ULL,0x000000000000E0A0ULL,0x000000000000C040ULL,
             0x0000000000030203ULL,0x0000000000070507ULL,0x00000000000E0A0EULL,0x00000000001C141CULL,0x0000000000382838ULL,0x0000000000705070ULL,0x0000000000E0A0E0ULL,0x0000000000C040C0ULL,
@@ -73,6 +73,23 @@ namespace Ataxx {
             const u64 mid=(b&0xFEFEFEFEFEFEFEFEULL)>>1|b|(b&0x7F7F7F7F7F7F7F7FULL)<<1;
             return (mid<<8|mid|mid>>8)&~b&0x7F7F7F7F7F7F7FULL;
         }
+        // inline uint8_t d4Transforms(const uint8_t idx,const uint8_t n) {
+        //     const uint8_t x=(idx&7);
+        //     const uint8_t y=(idx>>3);
+        //     switch (n) {
+        //         case 0: {return y*8+x;}
+        //         case 1: {return x*8+(6-y);}
+        //         case 2: {return (6-y)*8+(6-x);}
+        //         case 3: {return (6-x)*8+y;}
+        //         case 4: {return (6-y)*8+x;}
+        //         case 5: {return y*8+(6-x);}
+        //         case 6: {return x*8+y;}
+        //         case 7: {return (6-x)*8+(6-y);}
+        //         default: {
+        //             return 63;
+        //         }
+        //     }
+        // }
     }
     class Move {
         u8 _from{};
@@ -119,6 +136,8 @@ namespace Ataxx {
     class Board {
         u64 cells[2]{};
         bool _stm{};
+        u8 halfMoveNumber{};
+        u16 fullMoveNumber{};
     public:
         void _debugPlace(const int idx,const bool stm=false) {cells[stm]|=1ull<<idx;}
         [[nodiscard]] u64 hash() const {
@@ -140,16 +159,98 @@ namespace Ataxx {
         [[nodiscard]] u64 occ() const {return (cells[0]|cells[1])&0x7F7F7F7F7F7F7FULL;}
         [[nodiscard]] u64 sideOcc(const bool stm) const {return cells[stm]&0x7F7F7F7F7F7F7FULL;}
         [[nodiscard]] bool stm() const{return _stm;}
+        void setFen(const std::string &fen) {
+            int idx=0;
+            int stage=0;
+            bool stage2done=false;
+            for (int i=0;i<fen.size();i++) {
+                auto c=fen[i];
+                if (c==' ') {
+                    stage++;
+                    continue;
+                }
+                if (stage==0) {
+                    if (c=='x') {
+                        cells[0]|=1ull<<idx;
+                        idx++;
+                    }
+                    else if (c=='o') {
+                        cells[1]|=1ull<<idx;
+                        idx++;
+                    }
+                    else if (c=='/'){idx+=1;}
+                    else if (c>='1'&&c<='7'){
+                        idx+=c-'0';
+                    }
+                }
+                else if (stage==1) {
+                    if (c=='x') {_stm=false;}
+                    else{_stm=true;}
+                }
+                else if (stage==2&&!stage2done) {
+                    std::string num;
+                    int offset=0;
+                    while (i+offset<fen.size()) {
+                        if (fen[i+offset]==' '){break;}
+                        num.push_back(fen[i+offset]);
+                        offset++;
+                    }
+                    stage2done=true;
+                    halfMoveNumber=std::stoi(num);
+                }
+                else if (stage==3) {
+                    std::string num;
+                    int offset=0;
+                    while (i+offset<fen.size()) {
+                        if (fen[i+offset]==' '){break;}
+                        num.push_back(fen[i+offset]);
+                        offset++;
+                    }
+                    fullMoveNumber=std::stoi(num);
+                    break;
+                }
+            }
+        }
+        [[nodiscard]] std::string getFen() const {
+            std::string fen{};
+            int empties=0;
+            for (int i=0;i<55;i++) {
+                if (i%8==7) {
+                    if (empties) {fen.push_back(empties+'0');}
+                    fen.push_back('/');
+                    empties=0;
+                    continue;
+                }
+                if (cells[0]&1ull<<i) {
+                    if (empties) {fen.push_back(empties+'0');}
+                    fen.push_back('x');
+                    empties=0;
+                    continue;
+                }
+                if (cells[1]&1ull<<i) {
+                    if (empties) {fen.push_back(empties+'0');}
+                    fen.push_back('o');
+                    empties=0;
+                    continue;
+                }
+                empties++;
+            }
+            fen.push_back(' ');
+            if (_stm){fen.push_back('o');}
+            else{fen.push_back('x');}
+            fen+=" "+std::to_string(halfMoveNumber)+" "+std::to_string(fullMoveNumber);
+            return fen;
+        }
         void makeMove(const Move move) {
             cells[_stm]^=1ull<<move.from();
             cells[_stm]|=1ull<<move.to();
-            const u64 flips=move.captures(masks::MASKCLOSE[move.to()]);
+            const u64 flips=move.captures(tables::MASKCLOSE[move.to()]);
             cells[_stm]|=flips;
             cells[!_stm]^=flips;
             _stm=!_stm;
         }
         void unmakeMove(const Move move) {
-            const u64 flips=move.captures(masks::MASKCLOSE[move.to()]);
+            const u64 flips=move.captures(tables::MASKCLOSE[move.to()]);
             _stm=!_stm;
             cells[!_stm]|=flips;
             cells[_stm]^=flips;
@@ -185,11 +286,11 @@ namespace Ataxx {
         template <bool jmpMoves>
         void genMoves(const Board &pos,Movelist &moves,const u64 opp) {
             if constexpr (!jmpMoves) {
-                u64 dest=masks::neighbours(pos.sideOcc(pos.stm()))&~pos.sideOcc(!pos.stm());
+                u64 dest=tables::neighbours(pos.sideOcc(pos.stm()))&~pos.sideOcc(!pos.stm());
                 while (dest) {
                     const u8 idx=__builtin_ctzll(dest);
                     dest&=dest-1;
-                    moves.add(Move(55,idx,opp,masks::MASKCLOSE[idx]));
+                    moves.add(Move(55,idx,opp,tables::MASKCLOSE[idx]));
                 }
             }
             else {
@@ -197,11 +298,11 @@ namespace Ataxx {
                 while (pieces) {
                     const u8 from=__builtin_ctzll(pieces);
                     pieces&=pieces-1;
-                    u64 dest=masks::MASKFAR[from]&0x7F7F7F7F7F7F7FULL&~pos.occ();
+                    u64 dest=tables::MASKFAR[from]&0x7F7F7F7F7F7F7FULL&~pos.occ();
                     while (dest) {
                         const u8 idx=__builtin_ctzll(dest);
                         dest&=dest-1;
-                        moves.add(Move(from,idx,opp,masks::MASKCLOSE[idx]));
+                        moves.add(Move(from,idx,opp,tables::MASKCLOSE[idx]));
                     }
                 }
             }
@@ -215,7 +316,7 @@ namespace Ataxx {
         u8 _countMoves(const Board &pos) {
             u8 moveCount=0;
             if constexpr (!jmpMoves) {
-                const u64 dest=masks::neighbours(pos.sideOcc(pos.stm()))&0x7F7F7F7F7F7F7FULL&~pos.sideOcc(!pos.stm());
+                const u64 dest=tables::neighbours(pos.sideOcc(pos.stm()))&0x7F7F7F7F7F7F7FULL&~pos.sideOcc(!pos.stm());
                 moveCount+=__builtin_popcountll(dest);
             }
             else {
@@ -223,7 +324,7 @@ namespace Ataxx {
                 while (pieces) {
                     const u8 from=__builtin_ctzll(pieces);
                     pieces&=pieces-1;
-                    const u64 dest=masks::MASKFAR[from]&0x7F7F7F7F7F7F7FULL&~pos.occ();
+                    const u64 dest=tables::MASKFAR[from]&0x7F7F7F7F7F7F7FULL&~pos.occ();
                     moveCount+=__builtin_popcountll(dest);
                 }
             }
