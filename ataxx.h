@@ -75,14 +75,16 @@ namespace Ataxx {
         }
     }
     class Move {
-        u32 data{};
+        u8 _from{};
+        u8 _to{};
+        u8 _captures{};
     public:
-        void setTo(const u8 idx){data|=idx;}
-        void setFrom(const u8 idx){data|=idx<<6;}
-        void setCaptures(const u64 opp,const u64 mask) {data|=_pext_u64(opp,mask)<<12;}
-        [[nodiscard]] u8 to() const{return data&0x003F;}
-        [[nodiscard]] u8 from() const{return (data&0xFC0)>>6;}
-        [[nodiscard]] u64 captures(const u64 mask) const {return _pdep_u64(data>>12,mask);}
+        void setTo(const u8 idx){_to=idx;}
+        void setFrom(const u8 idx){_from=idx;}
+        void setCaptures(const u64 opp,const u64 mask) {_captures=_pext_u64(opp,mask);}
+        [[nodiscard]] u8 to() const{return _to;}
+        [[nodiscard]] u8 from() const{return _from;}
+        [[nodiscard]] u64 captures(const u64 mask) const {return _pdep_u64(_captures,mask);}
         Move(const u8 from,const u8 to) {
             setFrom(from);
             setTo(to);
@@ -93,6 +95,26 @@ namespace Ataxx {
             setCaptures(opp,mask);
         }
         Move()=default;
+    };
+    class MovePacked {
+        u32 data{};
+    public:
+        void setTo(const u8 idx){data|=idx;}
+        void setFrom(const u8 idx){data|=idx<<6;}
+        void setCaptures(const u64 opp,const u64 mask) {data|=_pext_u64(opp,mask)<<12;}
+        [[nodiscard]] u8 to() const{return data&0x003F;}
+        [[nodiscard]] u8 from() const{return (data&0xFC0)>>6;}
+        [[nodiscard]] u64 captures(const u64 mask) const {return _pdep_u64(data>>12,mask);}
+        MovePacked(const u8 from,const u8 to) {
+            setFrom(from);
+            setTo(to);
+        }
+        MovePacked(const u8 from,const u8 to,const u64 opp,const u64 mask) {
+            setFrom(from);
+            setTo(to);
+            setCaptures(opp,mask);
+        }
+        MovePacked()=default;
     };
     class Board {
         u64 cells[2]{};

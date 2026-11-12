@@ -3,20 +3,49 @@
 #include "ataxx.h"
 
 
-constexpr size_t TTSIZEMB=128;
 inline uint32_t key(const uint64_t hash){return hash>>32;}
 struct Entry {
     uint32_t key=0;
     uint8_t depth=0;
     uint64_t nodes=0;
 };
-constexpr size_t TTSIZE=TTSIZEMB*1024ull*1024ull/sizeof(Entry);
-class TT {
-    Entry table[TTSIZE]{};
-public:
-    Entry *probe(const uint64_t hash) {return &table[hash%TTSIZE];}
+
+struct Bucket { alignas(64)
+    Entry entries[4]{};
 };
-inline auto tt=TT();
+class TT {
+    std::vector<Bucket> table;
+    size_t TTSIZE{};
+
+public:
+    Entry *probe(const uint64_t hash) {
+        Entry *empty=nullptr;
+        Entry *lowest=nullptr;
+        auto &bucket=table[hash%TTSIZE];
+        for (int i=0;i<4;i++) {
+            if (bucket.entries[i].key==key(hash)) {return &bucket.entries[i];}
+            if (lowest==nullptr||bucket.entries[i].depth<lowest->depth) {lowest=&bucket.entries[i];}
+            else if (bucket.entries[i].key==0) {empty=&bucket.entries[i];}
+        }
+        if (empty!=nullptr){return empty;}
+        return lowest;
+    }
+    void clear() {
+        for (auto &bucket:table) {
+            for (int i=0;i<4;i++) {
+                bucket.entries[i]=Entry();
+            }
+        }
+    }
+    void prefetch(const uint64_t hash) const {
+        __builtin_prefetch(&table[hash%TTSIZE],0,1);
+    }
+    explicit TT(const size_t mb) {
+        TTSIZE=mb*1024ull*1024ull/sizeof(Bucket);
+        table.resize(TTSIZE);
+    }
+};
+inline auto tt=TT(512);
 inline uint64_t perftTT(Ataxx::Board &pos,const int depth) {
     if (depth==0){return 1ull;}
     if (depth==1) {

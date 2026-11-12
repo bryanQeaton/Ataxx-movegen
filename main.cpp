@@ -17,7 +17,6 @@ int main() {
     pos._debugPlace(6,true);
     pos._debugPlace(54);
     pos._debugPlace(48,true);
-    std::cout<<pos<<"\n";
     for (int d=0;d<=10;d++) {
         auto t0=std::chrono::high_resolution_clock::now();
         uint64_t nodes=perftTT(pos,d);
