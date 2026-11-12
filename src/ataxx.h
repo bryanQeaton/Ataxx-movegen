@@ -259,12 +259,22 @@ namespace Ataxx {
         }
         friend std::ostream &operator<<(std::ostream &os,const Board &pos) {
             for (int i=0;i<56;i++) {
-                if (i%8==0&&i){std::cout<<"\n";}
+                if (i%8==0&&i){os<<"\n";}
                 if ((i+1)%8==0){continue;}
-                if (pos.cells[0]&1ull<<i) {std::cout<<"X ";}
-                else if (pos.cells[1]&1ull<<i) {std::cout<<"O ";}
-                else{std::cout<<"_ ";}
+                if (pos.cells[0]&1ull<<i) {os<<"X ";}
+                else if (pos.cells[1]&1ull<<i) {os<<"O ";}
+                else{os<<"_ ";}
             }
+            os<<"\n=============\n";
+            const int p1c=__builtin_popcountll(pos.sideOcc(false));
+            const int p2c=__builtin_popcountll(pos.sideOcc(true));
+            os<<p1c;
+            if (p1c<=9){os<<" ";}
+            os<<"   X|O   ";
+            if (p2c<=9){os<<" ";}
+            os<<p2c<<"\n";
+            if (pos._stm) {os<<"  O to move\n";}
+            else{os<<"  X to move\n";}
             return os;
         }
     };
